@@ -119,7 +119,7 @@ if st.session_state.confirm_clear:
             st.session_state.messages = []
             st.session_state.files = None
             st.session_state.confirm_clear = False
-            st.experimental_rerun()
+            st. experimental_rerun()
     with col2:
         if st.button("❌ Cancel"):
             st.session_state.confirm_clear = False
