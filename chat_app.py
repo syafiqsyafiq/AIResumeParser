@@ -9,6 +9,17 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
+from streamlit.components.v1 import html
+
+# Inject manifest and service worker for PWA support
+html("""
+<link rel="manifest" href="/manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js');
+  }
+</script>
+""", height=0)
 
 # Load spaCy model
 nlp = spacy.load("en_core_web_sm")
