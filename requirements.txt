@@ -1,5 +1,5 @@
 wheel
-spacy==3.8.7
+spacy==3.7.4
 blis==1.2.0
 catalogue==2.0.10
 preshed==3.0.9
