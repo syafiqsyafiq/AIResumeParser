@@ -9,17 +9,32 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
-from streamlit.components.v1 import html
+import os
+import streamlit.components.v1 as components
 
-# Inject manifest and service worker for PWA support
-html("""
+
+# ✅ Page configuration — must be first Streamlit command
+st.set_page_config(page_title="AI Resume Parser Chat", layout="wide")
+
+# ✅ Add manifest and service worker
+st.markdown("""
 <link rel="manifest" href="/manifest.json">
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
   }
 </script>
-""", height=0)
+<meta name="theme-color" content="#0d6efd">
+""", unsafe_allow_html=True)
+
+
+# Serve static files like manifest.json and service-worker.js
+def serve_static_file(file_path, mime_type):
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    st.markdown(f"<meta http-equiv='Content-Type' content='{mime_type}'>", unsafe_allow_html=True)
+    components.html(content, height=0)
+
 
 # Load spaCy model
 nlp = spacy.load("en_core_web_sm")
@@ -40,6 +55,7 @@ def extract_text(uploaded_file):
         doc = docx.Document(uploaded_file)
         return "\n".join([para.text for para in doc.paragraphs])
     return ""
+
 
 # ----------------------------
 # Resume Parsing
@@ -69,6 +85,7 @@ def parse_resume(text):
         "skills": skills
     }
 
+
 # ----------------------------
 # Matching Function
 # ----------------------------
@@ -78,6 +95,7 @@ def match_resume(resume_texts, job_description):
     vectors = vectorizer.fit_transform(docs)
     similarity = cosine_similarity(vectors[-1], vectors[:-1])
     return similarity.flatten()
+
 
 # ----------------------------
 # Generate PDF Report
@@ -101,10 +119,10 @@ def create_pdf_report(report_text):
     buffer.seek(0)
     return buffer
 
+
 # ----------------------------
 # Streamlit UI Setup
 # ----------------------------
-st.set_page_config(page_title="AI Resume Parser Chat", layout="wide")
 st.title("💬 AI Resume Parser Chat")
 
 # --- Sidebar ---
@@ -118,6 +136,7 @@ if "files" not in st.session_state:
 if "confirm_clear" not in st.session_state:
     st.session_state.confirm_clear = False
 
+
 # --- Clear Chat Button in Sidebar ---
 if st.sidebar.button("🗑️ Clear Chat"):
     st.session_state.confirm_clear = True
@@ -130,16 +149,18 @@ if st.session_state.confirm_clear:
             st.session_state.messages = []
             st.session_state.files = None
             st.session_state.confirm_clear = False
-            st. experimental_rerun()
+            st.experimental_rerun()
     with col2:
         if st.button("❌ Cancel"):
             st.session_state.confirm_clear = False
+
 
 # --- Chat History in Sidebar ---
 if st.sidebar.checkbox("📜 Show Chat History", value=False):
     st.sidebar.write("### Chat Messages:")
     for msg in st.session_state.messages:
         st.sidebar.markdown(f"**{msg['role'].capitalize()}:** {msg['content'][:80]}{'...' if len(msg['content']) > 80 else ''}")
+
 
 # --- Download Report in Sidebar ---
 if st.sidebar.button("📥 Download Report"):
@@ -160,11 +181,13 @@ if st.sidebar.button("📥 Download Report"):
     else:
         st.sidebar.warning("⚠️ No analysis found yet. Run a job description first.")
 
+
 # --- File Upload (main area) ---
 uploaded_files = st.file_uploader("📎 Upload resumes", type=["pdf", "docx"], accept_multiple_files=True)
 if uploaded_files:
     st.session_state.files = uploaded_files
     st.success(f"{len(uploaded_files)} file(s) uploaded successfully!")
+
 
 # --- Chat Section ---
 for msg in st.session_state.messages:
