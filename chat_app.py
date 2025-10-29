@@ -139,24 +139,6 @@ if "files" not in st.session_state:
 if "confirm_clear" not in st.session_state:
     st.session_state.confirm_clear = False
 
-
-# --- Clear Chat Button in Sidebar ---
-if st.sidebar.button("🗑️ Clear Chat"):
-    st.session_state.confirm_clear = True
-
-if st.session_state.confirm_clear:
-    st.sidebar.warning("⚠️ Are you sure you want to clear all chat and files?")
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.button("✅ Yes, clear all"):
-            st.session_state.messages = []
-            st.session_state.files = None
-            st.session_state.confirm_clear = False
-            st.experimental_rerun()
-    with col2:
-        if st.button("❌ Cancel"):
-            st.session_state.confirm_clear = False
-
 # --- Install App Button ---
 st.sidebar.markdown("### 📲 Install App")
 st.sidebar.markdown("""
@@ -188,6 +170,23 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 </script>
 """, unsafe_allow_html=True)
+
+# --- Clear Chat Button in Sidebar ---
+if st.sidebar.button("🗑️ Clear Chat"):
+    st.session_state.confirm_clear = True
+
+if st.session_state.confirm_clear:
+    st.sidebar.warning("⚠️ Are you sure you want to clear all chat and files?")
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("✅ Yes, clear all"):
+            st.session_state.messages = []
+            st.session_state.files = None
+            st.session_state.confirm_clear = False
+            st.experimental_rerun()
+    with col2:
+        if st.button("❌ Cancel"):
+            st.session_state.confirm_clear = False
 
 # --- Chat History in Sidebar ---
 if st.sidebar.checkbox("📜 Show Chat History", value=False):
