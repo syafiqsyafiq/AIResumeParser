@@ -16,17 +16,20 @@ import streamlit.components.v1 as components
 # ✅ Page configuration — must be first Streamlit command
 st.set_page_config(page_title="AI Resume Parser Chat", layout="wide")
 
-# ✅ Add manifest and service worker
+# ✅ Add manifest and service worker (from /static folder)
 st.markdown("""
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="static/manifest.json">
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js');
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('static/service-worker.js')
+        .then(() => console.log('Service Worker registered'))
+        .catch(err => console.error('Service Worker failed:', err));
+    });
   }
 </script>
 <meta name="theme-color" content="#0d6efd">
 """, unsafe_allow_html=True)
-
 
 # Serve static files like manifest.json and service-worker.js
 def serve_static_file(file_path, mime_type):
@@ -154,6 +157,37 @@ if st.session_state.confirm_clear:
         if st.button("❌ Cancel"):
             st.session_state.confirm_clear = False
 
+# --- Install App Button ---
+st.sidebar.markdown("### 📲 Install App")
+st.sidebar.markdown("""
+If you're on **mobile or desktop browser**, you can install this app:
+1. Click the **⋮ menu** (or Share button on iPhone).
+2. Choose **"Add to Home Screen"** or **"Install App"**.
+
+Or click below if supported:
+""")
+
+st.sidebar.markdown("""
+<button id="installBtn" style="padding:10px 20px;background-color:#0d6efd;color:white;border:none;border-radius:8px;cursor:pointer;">
+📦 Install AI Resume Parser
+</button>
+
+<script>
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').addEventListener('click', async () => {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('App installed');
+    }
+    deferredPrompt = null;
+  });
+});
+</script>
+""", unsafe_allow_html=True)
 
 # --- Chat History in Sidebar ---
 if st.sidebar.checkbox("📜 Show Chat History", value=False):
