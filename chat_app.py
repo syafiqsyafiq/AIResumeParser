@@ -171,6 +171,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
 </script>
 """, unsafe_allow_html=True)
 
+
+
 # --- Clear Chat Button in Sidebar ---
 if st.sidebar.button("🗑️ Clear Chat"):
     st.session_state.confirm_clear = True
