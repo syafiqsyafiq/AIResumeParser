@@ -1,64 +1,259 @@
 import streamlit as st
-import os
-from PyPDF2 import PdfReader
+import pdfplumber
 import docx
-
-# -------------------------------
-# PAGE CONFIGURATION
-# -------------------------------
-st.set_page_config(page_title="AI Resume Parser", page_icon="💬", layout="wide")
-
-# -------------------------------
-# MAIN TITLE
-# -------------------------------
-st.title("💬 AI Resume Parser")
-st.write("Upload a resume file (PDF or DOCX) below to extract and analyze its content.")
-
-# -------------------------------
-# FILE UPLOAD
-# -------------------------------
-uploaded_file = st.file_uploader("📎 Upload resumes", type=["pdf", "docx"])
+import re
+import spacy
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+import os
+import streamlit.components.v1 as components
 
 
-# -------------------------------
-# FUNCTION TO EXTRACT TEXT
-# -------------------------------
-def extract_text(file):
-    text = ""
-    if file.name.endswith(".pdf"):
-        reader = PdfReader(file)
-        for page in reader.pages:
-            text += page.extract_text() or ""
-    elif file.name.endswith(".docx"):
-        doc = docx.Document(file)
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-    return text.strip()
+# ✅ Page configuration — must be first Streamlit command
+st.set_page_config(page_title="AI Resume Parser Chat", layout="wide")
+
+# ✅ Add manifest and service worker (from /static folder)
+st.markdown("""
+<link rel="manifest" href="static/manifest.json">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('static/service-worker.js')
+      .then(() => console.log('Service Worker registered successfully.'))
+      .catch((error) => console.error('Service Worker registration failed:', error));
+  });
+}
+</script>
+<meta name="theme-color" content="#0d6efd">
+""", unsafe_allow_html=True)
+
+# Serve static files like manifest.json and service-worker.js
+def serve_static_file(file_path, mime_type):
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    st.markdown(f"<meta http-equiv='Content-Type' content='{mime_type}'>", unsafe_allow_html=True)
+    components.html(content, height=0)
 
 
-# -------------------------------
-# DISPLAY PARSED DATA
-# -------------------------------
-if uploaded_file:
-    st.subheader("📄 Extracted Resume Content")
+# Load spaCy model
+nlp = spacy.load("en_core_web_sm")
 
-    extracted_text = extract_text(uploaded_file)
+# ----------------------------
+# Resume Text Extraction
+# ----------------------------
+def extract_text(uploaded_file):
+    if uploaded_file.name.endswith(".pdf"):
+        text = ""
+        with pdfplumber.open(uploaded_file) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+        return text
+    elif uploaded_file.name.endswith(".docx"):
+        doc = docx.Document(uploaded_file)
+        return "\n".join([para.text for para in doc.paragraphs])
+    return ""
 
-    if extracted_text:
-        st.success("✅ Resume successfully processed!")
 
-        # Display in collapsible section
-        with st.expander("View Full Extracted Text"):
-            st.text_area("Extracted Text", extracted_text, height=300)
+# ----------------------------
+# Resume Parsing
+# ----------------------------
+def parse_resume(text):
+    doc = nlp(text)
 
-        # Simple list view (simulate AI summary)
-        st.subheader("🧠 Key Information (Summary Example)")
-        st.markdown("""
-        - **Name:** Automatically detected from text (if available)  
-        - **Email:** Extracted if found in document  
-        - **Skills:** Parsed keywords like Python, Excel, etc.  
-        - **Experience:** Summarized years or job positions  
-        - **Education:** School, degree, and field detected  
-        """)
+    name = None
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            name = ent.text
+            break
+
+    email = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", text)
+    email = email.group(0) if email else None
+
+    phone = re.search(r"(\+?\d{1,3}[-.\s]?)?\d{7,12}", text)
+    phone = phone.group(0) if phone else None
+
+    skills_db = ["python", "java", "sql", "machine learning", "nlp", "excel", "communication"]
+    skills = [skill for skill in skills_db if skill.lower() in text.lower()]
+
+    return {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "skills": skills
+    }
+
+
+# ----------------------------
+# Matching Function
+# ----------------------------
+def match_resume(resume_texts, job_description):
+    docs = resume_texts + [job_description]
+    vectorizer = TfidfVectorizer()
+    vectors = vectorizer.fit_transform(docs)
+    similarity = cosine_similarity(vectors[-1], vectors[:-1])
+    return similarity.flatten()
+
+
+# ----------------------------
+# Generate PDF Report
+# ----------------------------
+def create_pdf_report(report_text):
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    pdf.setFont("Helvetica", 12)
+    width, height = A4
+
+    y = height - inch
+    for line in report_text.split("\n"):
+        if y < inch:
+            pdf.showPage()
+            pdf.setFont("Helvetica", 12)
+            y = height - inch
+        pdf.drawString(1 * inch, y, line)
+        y -= 15
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
+# ----------------------------
+# Streamlit UI Setup
+# ----------------------------
+st.title("💬 AI Resume Parser Chat")
+
+# --- Sidebar ---
+st.sidebar.title("🧭 Controls")
+
+# Initialize session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "files" not in st.session_state:
+    st.session_state.files = None
+if "confirm_clear" not in st.session_state:
+    st.session_state.confirm_clear = False
+
+# --- Install App Button ---
+st.sidebar.markdown("### 📲 Install App")
+st.sidebar.markdown("""
+If you're on **mobile or desktop browser**, you can install this app:
+1. Click the **⋮ menu** (or Share button on iPhone).
+2. Choose **"Add to Home Screen"** or **"Install App"**.
+
+Or click below if supported:
+""")
+
+st.sidebar.markdown("""
+<button id="installBtn" style="padding:10px 20px;background-color:#0d6efd;color:white;border:none;border-radius:8px;cursor:pointer;">
+📦 Install AI Resume Parser
+</button>
+
+<script>
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').addEventListener('click', async () => {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('App installed');
+    }
+    deferredPrompt = null;
+  });
+});
+</script>
+""", unsafe_allow_html=True)
+
+
+
+# --- Clear Chat Button in Sidebar ---
+if st.sidebar.button("🗑️ Clear Chat"):
+    st.session_state.confirm_clear = True
+
+if st.session_state.confirm_clear:
+    st.sidebar.warning("⚠️ Are you sure you want to clear all chat and files?")
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("✅ Yes, clear all"):
+            st.session_state.messages = []
+            st.session_state.files = None
+            st.session_state.confirm_clear = False
+            st.experimental_rerun()
+    with col2:
+        if st.button("❌ Cancel"):
+            st.session_state.confirm_clear = False
+
+# --- Chat History in Sidebar ---
+if st.sidebar.checkbox("📜 Show Chat History", value=False):
+    st.sidebar.write("### Chat Messages:")
+    for msg in st.session_state.messages:
+        st.sidebar.markdown(f"**{msg['role'].capitalize()}:** {msg['content'][:80]}{'...' if len(msg['content']) > 80 else ''}")
+
+
+# --- Download Report in Sidebar ---
+if st.sidebar.button("📥 Download Report"):
+    last_reply = ""
+    for msg in reversed(st.session_state.messages):
+        if msg["role"] == "assistant":
+            last_reply = msg["content"]
+            break
+
+    if last_reply:
+        pdf_file = create_pdf_report(last_reply)
+        st.sidebar.download_button(
+            label="⬇️ Click to Download PDF Report",
+            data=pdf_file,
+            file_name="resume_analysis_report.pdf",
+            mime="application/pdf"
+        )
     else:
-        st.warning("⚠️ No text could be extracted from the uploaded file. Please try an
+        st.sidebar.warning("⚠️ No analysis found yet. Run a job description first.")
+
+
+# --- File Upload (main area) ---
+uploaded_files = st.file_uploader("📎 Upload resumes", type=["pdf", "docx"], accept_multiple_files=True)
+if uploaded_files:
+    st.session_state.files = uploaded_files
+    st.success(f"{len(uploaded_files)} file(s) uploaded successfully!")
+
+
+# --- Chat Section ---
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+if user_input := st.chat_input("Type a job description or request..."):
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+    if st.session_state.files:
+        resume_texts, parsed_data = [], []
+        for file in st.session_state.files:
+            text = extract_text(file)
+            resume_texts.append(text)
+            parsed_data.append(parse_resume(text))
+
+        scores = match_resume(resume_texts, user_input)
+        for i, parsed in enumerate(parsed_data):
+            parsed["score"] = scores[i]
+        ranked = sorted(parsed_data, key=lambda x: x["score"], reverse=True)
+
+        reply = "📊 **Candidate Ranking (Best → Worst):**\n\n"
+        for rank, parsed in enumerate(ranked, start=1):
+            reply += f"**{rank}. {parsed['name'] or 'Unknown'}**\n"
+            reply += f"- 📧 {parsed['email'] or 'N/A'}\n"
+            reply += f"- 📱 {parsed['phone'] or 'N/A'}\n"
+            reply += f"- 🛠 Skills: {', '.join(parsed['skills']) if parsed['skills'] else 'N/A'}\n"
+            reply += f"- ✅ Match Score: {parsed['score']:.2f}\n\n"
+    else:
+        reply = "⚠️ Please upload at least one resume before analysis."
+
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+    with st.chat_message("assistant"):
+        st.markdown(reply)
