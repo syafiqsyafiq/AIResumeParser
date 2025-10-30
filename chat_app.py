@@ -20,13 +20,13 @@ st.set_page_config(page_title="AI Resume Parser Chat", layout="wide")
 st.markdown("""
 <link rel="manifest" href="static/manifest.json">
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('static/service-worker.js')
-        .then(() => console.log('Service Worker registered'))
-        .catch(err => console.error('Service Worker failed:', err));
-    });
-  }
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('static/service-worker.js')
+      .then(() => console.log('Service Worker registered successfully.'))
+      .catch((error) => console.error('Service Worker registration failed:', error));
+  });
+}
 </script>
 <meta name="theme-color" content="#0d6efd">
 """, unsafe_allow_html=True)

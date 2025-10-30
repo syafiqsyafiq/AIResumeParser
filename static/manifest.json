@@ -1,12 +1,21 @@
-"icons": [
-  {
-    "src": "static/app-icon.png",
-    "sizes": "192x192",
-    "type": "image/png"
-  },
-  {
-    "src": "static/app-icon.png",
-    "sizes": "512x512",
-    "type": "image/png"
-  }
-]
+{
+  "name": "AI Resume Parser",
+  "short_name": "ResumeParser",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d6efd",
+  "description": "An AI-powered resume parser that analyzes and ranks candidates.",
+  "icons": [
+    {
+      "src": "static/app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "static/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
