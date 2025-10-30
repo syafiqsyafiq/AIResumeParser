@@ -9,9 +9,7 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
-import os
 import streamlit.components.v1 as components
-
 
 # ✅ Page configuration — must be first Streamlit command
 st.set_page_config(page_title="AI Resume Parser Chat", layout="wide")
@@ -30,14 +28,6 @@ if ('serviceWorker' in navigator) {
 </script>
 <meta name="theme-color" content="#0d6efd">
 """, unsafe_allow_html=True)
-
-# Serve static files like manifest.json and service-worker.js
-def serve_static_file(file_path, mime_type):
-    with open(file_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    st.markdown(f"<meta http-equiv='Content-Type' content='{mime_type}'>", unsafe_allow_html=True)
-    components.html(content, height=0)
-
 
 # Load spaCy model
 nlp = spacy.load("en_core_web_sm")
@@ -59,18 +49,11 @@ def extract_text(uploaded_file):
         return "\n".join([para.text for para in doc.paragraphs])
     return ""
 
-
 # ----------------------------
 # Resume Parsing
 # ----------------------------
 def parse_resume(text):
     doc = nlp(text)
-
-    name = None
-    for ent in doc.ents:
-        if ent.label_ == "PERSON":
-            name = ent.text
-            break
 
     email = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", text)
     email = email.group(0) if email else None
@@ -82,12 +65,10 @@ def parse_resume(text):
     skills = [skill for skill in skills_db if skill.lower() in text.lower()]
 
     return {
-        "name": name,
         "email": email,
         "phone": phone,
         "skills": skills
     }
-
 
 # ----------------------------
 # Matching Function
@@ -98,7 +79,6 @@ def match_resume(resume_texts, job_description):
     vectors = vectorizer.fit_transform(docs)
     similarity = cosine_similarity(vectors[-1], vectors[:-1])
     return similarity.flatten()
-
 
 # ----------------------------
 # Generate PDF Report
@@ -122,7 +102,6 @@ def create_pdf_report(report_text):
     buffer.seek(0)
     return buffer
 
-
 # ----------------------------
 # Streamlit UI Setup
 # ----------------------------
@@ -139,41 +118,7 @@ if "files" not in st.session_state:
 if "confirm_clear" not in st.session_state:
     st.session_state.confirm_clear = False
 
-# --- Install App Button ---
-st.sidebar.markdown("### 📲 Install App")
-st.sidebar.markdown("""
-If you're on **mobile or desktop browser**, you can install this app:
-1. Click the **⋮ menu** (or Share button on iPhone).
-2. Choose **"Add to Home Screen"** or **"Install App"**.
-
-Or click below if supported:
-""")
-
-st.sidebar.markdown("""
-<button id="installBtn" style="padding:10px 20px;background-color:#0d6efd;color:white;border:none;border-radius:8px;cursor:pointer;">
-📦 Install AI Resume Parser
-</button>
-
-<script>
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById('installBtn').addEventListener('click', async () => {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      console.log('App installed');
-    }
-    deferredPrompt = null;
-  });
-});
-</script>
-""", unsafe_allow_html=True)
-
-
-
-# --- Clear Chat Button in Sidebar ---
+# --- Clear Chat Button ---
 if st.sidebar.button("🗑️ Clear Chat"):
     st.session_state.confirm_clear = True
 
@@ -196,8 +141,7 @@ if st.sidebar.checkbox("📜 Show Chat History", value=False):
     for msg in st.session_state.messages:
         st.sidebar.markdown(f"**{msg['role'].capitalize()}:** {msg['content'][:80]}{'...' if len(msg['content']) > 80 else ''}")
 
-
-# --- Download Report in Sidebar ---
+# --- Download Report ---
 if st.sidebar.button("📥 Download Report"):
     last_reply = ""
     for msg in reversed(st.session_state.messages):
@@ -216,13 +160,11 @@ if st.sidebar.button("📥 Download Report"):
     else:
         st.sidebar.warning("⚠️ No analysis found yet. Run a job description first.")
 
-
-# --- File Upload (main area) ---
+# --- File Upload ---
 uploaded_files = st.file_uploader("📎 Upload resumes", type=["pdf", "docx"], accept_multiple_files=True)
 if uploaded_files:
     st.session_state.files = uploaded_files
     st.success(f"{len(uploaded_files)} file(s) uploaded successfully!")
-
 
 # --- Chat Section ---
 for msg in st.session_state.messages:
@@ -234,24 +176,30 @@ if user_input := st.chat_input("Type a job description or request..."):
 
     if st.session_state.files:
         resume_texts, parsed_data = [], []
+        file_names = []
+
         for file in st.session_state.files:
             text = extract_text(file)
             resume_texts.append(text)
             parsed_data.append(parse_resume(text))
+            file_names.append(file.name)  # ✅ Use filename for display
 
         scores = match_resume(resume_texts, user_input)
         for i, parsed in enumerate(parsed_data):
             parsed["score"] = scores[i]
+            parsed["file_name"] = file_names[i]
+
         ranked = sorted(parsed_data, key=lambda x: x["score"], reverse=True)
 
         reply = "📊 **Candidate Ranking (Best → Worst):**\n\n"
         for rank, parsed in enumerate(ranked, start=1):
-            candidate_name = parsed['name'] or f"Candidate {rank}"
-            reply += f"**{rank}. {candidate_name}**\n"
+            candidate_label = parsed["file_name"]  # ✅ Display actual filename
+            reply += f"**{rank}. {candidate_label}**\n"
             reply += f"- 📧 {parsed['email'] or 'N/A'}\n"
             reply += f"- 📱 {parsed['phone'] or 'N/A'}\n"
             reply += f"- 🛠 Skills: {', '.join(parsed['skills']) if parsed['skills'] else 'N/A'}\n"
             reply += f"- ✅ Match Score: {parsed['score']:.2f}\n\n"
+
     else:
         reply = "⚠️ Please upload at least one resume before analysis."
 
