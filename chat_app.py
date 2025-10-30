@@ -246,7 +246,8 @@ if user_input := st.chat_input("Type a job description or request..."):
 
         reply = "📊 **Candidate Ranking (Best → Worst):**\n\n"
         for rank, parsed in enumerate(ranked, start=1):
-            reply += f"**{rank}. {parsed['name'] or 'Unknown'}**\n"
+            candidate_name = parsed['name'] or f"Candidate {rank}"
+            reply += f"**{rank}. {candidate_name}**\n"
             reply += f"- 📧 {parsed['email'] or 'N/A'}\n"
             reply += f"- 📱 {parsed['phone'] or 'N/A'}\n"
             reply += f"- 🛠 Skills: {', '.join(parsed['skills']) if parsed['skills'] else 'N/A'}\n"
