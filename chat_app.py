@@ -18,33 +18,22 @@ st.set_page_config(page_title="AI Resume Parser", layout="wide")
 # ✅ PWA: Manifest + Service Worker (corrected HTML)
 # ---------------------------------------------------------
 st.markdown("""
-<link rel="manifest" href="static/manifest.json">
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('static/service-worker.js')
-      .then(() => console.log('✅ Service Worker registered'))
-      .catch(err => console.error('❌ Service Worker failed:', err));
-  });
-}
-
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const installBtn = document.getElementById('install-app-btn');
-  if (installBtn) installBtn.style.display = 'block';
+    e.preventDefault();
+    deferredPrompt = e;
 });
 
 function installPWA() {
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(() => deferredPrompt = null);
-  }
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => deferredPrompt = null);
+    }
 }
 </script>
-<meta name="theme-color" content="#0d6efd">
 """, unsafe_allow_html=True)
+
 
 
 # ---------------------------------------------------------
