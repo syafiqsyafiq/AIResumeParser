@@ -15,7 +15,7 @@ from reportlab.pdfgen import canvas
 st.set_page_config(page_title="AI Resume Parser", layout="wide")
 
 # ---------------------------------------------------------
-# ✅ PWA: Manifest + Service Worker
+# ✅ PWA: Manifest + Service Worker (corrected HTML)
 # ---------------------------------------------------------
 st.markdown("""
 <link rel="manifest" href="static/manifest.json">
@@ -28,7 +28,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Show Install prompt if available
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -46,6 +45,7 @@ function installPWA() {
 </script>
 <meta name="theme-color" content="#0d6efd">
 """, unsafe_allow_html=True)
+
 
 # ---------------------------------------------------------
 # ✅ Load spaCy model
